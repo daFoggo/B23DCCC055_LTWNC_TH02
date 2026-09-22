@@ -1,0 +1,58 @@
+import type { Assignment } from "./schemas";
+
+export const SAMPLE_ASSIGNMENTS: Assignment[] = [
+	{
+		id: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+		courseId: "3a2f7c1d-4b5e-4f8a-9c6d-1e2f3a4b5c6d",
+		name: "Bài tập chương 1 — Logic mệnh đề",
+		deadline: "2026-09-26T23:59:00.000Z",
+		priority: "high",
+		completed: false,
+		createdAt: "2026-09-18T00:00:00.000Z",
+	},
+	{
+		id: "1f4b2c9d-8a31-4f6e-9d2c-7c0e5a1b8f42",
+		courseId: "5c4a9e3f-6d0a-4b1c-8e8f-3a4b5c6d7e8f",
+		name: "Lab 3 — Form validation",
+		deadline: "2026-09-30T23:59:00.000Z",
+		priority: "medium",
+		completed: false,
+		createdAt: "2026-09-20T00:00:00.000Z",
+	},
+	{
+		id: "a3c7e9d2-4b5f-4d1a-8c6e-2f9b3a0d1c7e",
+		courseId: "6d5b0f4a-7e1b-4c2d-a9fa-4b5c6d7e8f9a",
+		name: "Bài tập thực hành SQL — câu 1–8",
+		deadline: "2026-09-15T23:59:00.000Z",
+		priority: "low",
+		completed: false,
+		createdAt: "2026-09-05T00:00:00.000Z",
+	},
+	{
+		id: "5e6b1d3f-2c8a-4f7b-9d1e-8a0c3b2f5e6d",
+		courseId: "7e6c1a5b-8f2c-4d3e-ba0b-5c6d7e8f9a0b",
+		name: "Đồ án tuần 6 — Process scheduling",
+		deadline: "2026-09-20T23:59:00.000Z",
+		priority: "high",
+		completed: false,
+		createdAt: "2026-09-10T00:00:00.000Z",
+	},
+	{
+		id: "7f0a4c2e-9d3b-4e8c-9a5f-6b2d0e3a9c7b",
+		courseId: "4b3f8d2e-5c6f-4a9b-9d7e-2f3a4b5c6d7e",
+		name: "Bài tập chương 2 — Cây nhị phân",
+		deadline: "2026-09-18T23:59:00.000Z",
+		priority: "medium",
+		completed: true,
+		createdAt: "2026-09-08T00:00:00.000Z",
+	},
+	{
+		id: "2b6d8f4a-1c3e-4a9d-8b2f-5e7c0a4d6f3e",
+		courseId: "8f7d2b6c-9a3d-4e4f-8b1c-6d7e8f9a0b1c",
+		name: "Bài tập chương 1 — TCP/IP",
+		deadline: "2026-09-25T23:59:00.000Z",
+		priority: "low",
+		completed: true,
+		createdAt: "2026-09-12T00:00:00.000Z",
+	},
+];

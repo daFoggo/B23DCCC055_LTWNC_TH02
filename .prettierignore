@@ -1,0 +1,9 @@
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+# Generated file - do not format (Biome is canonical)
+src/routeTree.gen.ts
+# shadcn-generated UI (Biome is canonical)
+src/components/ui/**
+# Biome/Prettier formatter divergence on complex generics; Biome wins
+src/types/api.ts
