@@ -29,6 +29,8 @@ export interface AssignmentToolbarProps {
 	totalCount?: number;
 	filteredCount?: number;
 	className?: string;
+	onGenerateMock10k?: () => void;
+	isGeneratingMock?: boolean;
 }
 
 const SORT_LABELS: Record<KanbanSortOption, string> = {
@@ -44,6 +46,8 @@ export const AssignmentToolbar = ({
 	totalCount,
 	filteredCount,
 	className,
+	onGenerateMock10k,
+	isGeneratingMock = false,
 }: AssignmentToolbarProps) => {
 	const isHydrated = useHydrated();
 
@@ -176,6 +180,19 @@ export const AssignmentToolbar = ({
 						>
 							<IconRotate className="size-3.5" />
 							Đặt lại
+						</Button>
+					)}
+
+					{onGenerateMock10k && (
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							onClick={onGenerateMock10k}
+							disabled={isGeneratingMock}
+							className="text-xs"
+						>
+							{isGeneratingMock ? "Đang tạo..." : "Tạo 10.000 bài tập mẫu"}
 						</Button>
 					)}
 				</div>

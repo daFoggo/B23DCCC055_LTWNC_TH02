@@ -56,3 +56,41 @@ export const SAMPLE_ASSIGNMENTS: Assignment[] = [
 		createdAt: "2026-09-12T00:00:00.000Z",
 	},
 ];
+
+const MOCK_COURSE_IDS = [
+	"3a2f7c1d-4b5e-4f8a-9c6d-1e2f3a4b5c6d",
+	"4b3f8d2e-5c6f-4a9b-9d7e-2f3a4b5c6d7e",
+	"5c4a9e3f-6d0a-4b1c-8e8f-3a4b5c6d7e8f",
+	"6d5b0f4a-7e1b-4c2d-a9fa-4b5c6d7e8f9a",
+	"7e6c1a5b-8f2c-4d3e-ba0b-5c6d7e8f9a0b",
+	"8f7d2b6c-9a3d-4e4f-8b1c-6d7e8f9a0b1c",
+];
+
+const PRIORITIES_LIST = ["low", "medium", "high"] as const;
+
+export const generateMockAssignments = (count = 10000): Assignment[] => {
+	const result: Assignment[] = new Array(count);
+	const now = Date.now();
+	for (let i = 0; i < count; i++) {
+		const courseId = MOCK_COURSE_IDS[i % MOCK_COURSE_IDS.length];
+		const priority = PRIORITIES_LIST[i % PRIORITIES_LIST.length];
+		const completed = i % 3 === 0;
+		// Rải hạn nộp: một số quá hạn, một số sắp tới, một số xa
+		const offsetDays = (i % 60) - 20;
+		const deadline = new Date(
+			now + offsetDays * 24 * 60 * 60 * 1000,
+		).toISOString();
+		const createdAt = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+		result[i] = {
+			id: `mock-${i + 1}`,
+			courseId,
+			name: `Bài tập kiểm tra mẫu #${i + 1} - Module ${i % 10}`,
+			deadline,
+			priority,
+			completed,
+			createdAt,
+		};
+	}
+	return result;
+};

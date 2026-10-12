@@ -1,44 +1,65 @@
-import { IconPlus } from "@tabler/icons-react";
-import { useSuspenseQueries } from "@tanstack/react-query";
+import {
+	IconChartBar,
+	IconLayoutKanban,
+	IconList,
+	IconPlus,
+} from "@tabler/icons-react";
+import { useQueryClient, useSuspenseQueries } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ErrorFallback } from "@/components/common/error-pages";
+import { ThemeToggle } from "@/components/common/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type {
 	Assignment,
+	AssignmentId,
 	AssignmentStatus,
 	NewAssignmentInput,
 } from "@/features/assignments";
 import {
 	ASSIGNMENT_STATUSES,
 	AssignmentBoard,
+	AssignmentCard,
 	AssignmentFormDialog,
+	assignmentKeys,
 	assignmentsQueryOptions,
 	filterAndSortAssignments,
+	generateMockAssignments,
 	useAssignmentsByStatus,
 	useCreateAssignmentMutation,
 	useDeleteAssignmentMutation,
 	useKanbanStore,
+	usePinStore,
 	useToggleAssignmentMutation,
 	useUpdateAssignmentMutation,
+	VirtualizedAssignmentList,
 } from "@/features/assignments";
 import type { Course } from "@/features/course";
 import { coursesQueryOptions } from "@/features/course";
+import { useDebounce } from "@/hooks/use-debounce";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { getErrorMessage } from "@/lib/error";
 
+// React.lazy cho trang / component Thống kê
+const LazyAssignmentStatsView = lazy(
+	() => import("@/features/assignments/components/assignment-stats-view"),
+);
+
 type DialogState =
-	| { mode: "create" }
-	| { mode: "edit"; assignment: Assignment }
-	| null;
+	{ mode: "create" } | { mode: "edit"; assignment: Assignment } | null;
+
+type ViewTab = "kanban" | "virtualized" | "stats";
 
 const HomePage = () => {
 	const [{ data: assignments }, { data: courses }] = useSuspenseQueries({
 		queries: [assignmentsQueryOptions(), coursesQueryOptions()],
 	});
+	const queryClient = useQueryClient();
 	const [dialog, setDialog] = useState<DialogState>(null);
+	const [activeTab, setActiveTab] = useState<ViewTab>("kanban");
+	const [isGeneratingMock, setIsGeneratingMock] = useState(false);
 	const isHydrated = useHydrated();
 
 	const searchQuery = useKanbanStore((s) => s.searchQuery);
@@ -46,6 +67,13 @@ const HomePage = () => {
 	const courseFilter = useKanbanStore((s) => s.courseFilter);
 	const sortBy = useKanbanStore((s) => s.sortBy);
 	const columnOrder = useKanbanStore((s) => s.columnOrder);
+
+	// Zustand pin store
+	const pinnedIds = usePinStore((s) => s.pinnedIds);
+	const togglePin = usePinStore((s) => s.togglePin);
+
+	// Kỹ thuật useDebounce (300 ms) cho ô tìm kiếm
+	const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
 	const toggleMutation = useToggleAssignmentMutation();
 	const deleteMutation = useDeleteAssignmentMutation();
@@ -76,6 +104,9 @@ const HomePage = () => {
 		return map;
 	}, [courses]);
 
+	const pinnedSet = useMemo(() => new Set(pinnedIds), [pinnedIds]);
+
+	// Kỹ thuật useMemo cho phần lọc & sắp xếp (kết hợp debounced search và pinnedIds)
 	const filteredAssignments = useMemo(() => {
 		if (!isHydrated) {
 			return filterAndSortAssignments(
@@ -85,28 +116,62 @@ const HomePage = () => {
 					priorityFilter: "all",
 					courseFilter: "all",
 					sortBy: "manual",
+					pinnedIds: [],
 				},
 				courseNameById,
 			);
 		}
 		return filterAndSortAssignments(
 			assignments,
-			{ searchQuery, priorityFilter, courseFilter, sortBy },
+			{
+				searchQuery: debouncedSearchQuery,
+				priorityFilter,
+				courseFilter,
+				sortBy,
+				pinnedIds,
+			},
 			courseNameById,
 		);
 	}, [
 		assignments,
 		isHydrated,
-		searchQuery,
+		debouncedSearchQuery,
 		priorityFilter,
 		courseFilter,
 		sortBy,
+		pinnedIds,
 		courseNameById,
 	]);
 
 	const byStatus = useAssignmentsByStatus(
 		filteredAssignments,
 		isHydrated && sortBy === "manual" ? columnOrder : undefined,
+	);
+
+	// useCallback cho các handler truyền xuống AssignmentCard
+	const handleEdit = useCallback((assignment: Assignment) => {
+		setDialog({ mode: "edit", assignment });
+	}, []);
+
+	const handleToggle = useCallback(
+		(id: AssignmentId, completed: boolean) => {
+			toggleMutation.mutate({ id, completed });
+		},
+		[toggleMutation],
+	);
+
+	const handleDelete = useCallback(
+		(id: AssignmentId) => {
+			deleteMutation.mutate({ id });
+		},
+		[deleteMutation],
+	);
+
+	const handlePin = useCallback(
+		(id: AssignmentId) => {
+			togglePin(id);
+		},
+		[togglePin],
 	);
 
 	const handleSubmit = async (input: NewAssignmentInput) => {
@@ -139,8 +204,8 @@ const HomePage = () => {
 				await toggleMutation.mutateAsync({ id, completed: true });
 				toast.success("Đã đánh dấu hoàn thành bài tập");
 			} else if (targetStatus === "in-progress") {
-				const isOverdue = Date.parse(assignment.deadline) < Date.now();
-				if (isOverdue) {
+				const isPast = Date.parse(assignment.deadline) < Date.now();
+				if (isPast) {
 					const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 					await updateMutation.mutateAsync({
 						id: assignment.id,
@@ -178,67 +243,155 @@ const HomePage = () => {
 		}
 	};
 
+	// Chế độ stress test: Tạo 10.000 bài tập mẫu
+	const handleGenerateMock10k = () => {
+		setIsGeneratingMock(true);
+		try {
+			const mockList = generateMockAssignments(10000);
+			queryClient.setQueryData<Assignment[]>(assignmentKeys.list(), mockList);
+			toast.success("Đã nạp thành công 10.000 bài tập mẫu vào bộ nhớ!");
+			// Chuyển sang chế độ xem Virtualized để giao diện mượt mà
+			setActiveTab("virtualized");
+		} catch (err) {
+			toast.error("Không thể tạo dữ liệu mẫu");
+		} finally {
+			setIsGeneratingMock(false);
+		}
+	};
+
 	return (
 		<main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-4 py-8 sm:px-6">
 			<header className="flex flex-wrap items-end justify-between gap-4">
 				<div className="flex flex-col gap-1.5">
-					<h1 className="font-title text-3xl font-bold tracking-tight text-foreground">
-						Student Deadline Tracker
-					</h1>
+					<div className="flex items-center gap-3">
+						<h1 className="font-title text-3xl font-bold tracking-tight text-foreground">
+							Student Deadline Tracker
+						</h1>
+						<ThemeToggle />
+					</div>
 					<p className="text-sm text-muted-foreground">
-						Theo dõi bài tập theo trạng thái để không bỏ lỡ hạn nộp. Kéo thả thẻ
-						để cập nhật trạng thái.
+						Theo dõi bài tập theo trạng thái, tối ưu hiệu năng và ghim bài tập
+						quan trọng.
 					</p>
 				</div>
-				<Button onClick={() => setDialog({ mode: "create" })}>
-					<IconPlus />
-					Thêm bài tập
-				</Button>
+				<div className="flex items-center gap-2">
+					<div className="flex rounded-lg border bg-muted/30 p-1">
+						<Button
+							variant={activeTab === "kanban" ? "default" : "ghost"}
+							size="sm"
+							onClick={() => setActiveTab("kanban")}
+							className="text-xs"
+						>
+							<IconLayoutKanban className="size-3.5" />
+							Kanban
+						</Button>
+						<Button
+							variant={activeTab === "virtualized" ? "default" : "ghost"}
+							size="sm"
+							onClick={() => setActiveTab("virtualized")}
+							className="text-xs"
+						>
+							<IconList className="size-3.5" />
+							Virtualization
+						</Button>
+						<Button
+							variant={activeTab === "stats" ? "default" : "ghost"}
+							size="sm"
+							onClick={() => setActiveTab("stats")}
+							className="text-xs"
+						>
+							<IconChartBar className="size-3.5" />
+							Thống kê
+						</Button>
+					</div>
+
+					<Button onClick={() => setDialog({ mode: "create" })}>
+						<IconPlus />
+						Thêm bài tập
+					</Button>
+				</div>
 			</header>
 
-			<AssignmentBoard.Toolbar
-				courses={courses}
-				totalCount={assignments.length}
-				filteredCount={filteredAssignments.length}
-			/>
+			{activeTab !== "stats" && (
+				<AssignmentBoard.Toolbar
+					courses={courses}
+					totalCount={assignments.length}
+					filteredCount={filteredAssignments.length}
+					onGenerateMock10k={handleGenerateMock10k}
+					isGeneratingMock={isGeneratingMock}
+				/>
+			)}
 
-			<AssignmentBoard
-				assignments={assignments}
-				byStatus={byStatus}
-				courseNameById={courseNameById}
-				courseCodeById={courseCodeById}
-				onStatusChange={handleStatusChange}
-			>
-				{ASSIGNMENT_STATUSES.map((status) => (
-					<AssignmentBoard.Column
-						key={status}
-						status={status}
-						items={byStatus[status]}
-						count={byStatus[status].length}
-					>
-						{byStatus[status].length === 0 ? (
-							<AssignmentBoard.Empty status={status} />
-						) : (
-							byStatus[status].map((assignment) => {
-								const course = courseById[assignment.courseId];
-								return (
-									<AssignmentBoard.Card
-										key={assignment.id}
-										assignment={assignment}
-										courseName={course?.name ?? assignment.courseId}
-										courseCode={course?.code}
-										onEdit={() => setDialog({ mode: "edit", assignment })}
-										onToggle={(id, completed) =>
-											toggleMutation.mutate({ id, completed })
-										}
-										onDelete={(id) => deleteMutation.mutate({ id })}
-									/>
-								);
-							})
-						)}
-					</AssignmentBoard.Column>
-				))}
-			</AssignmentBoard>
+			{activeTab === "kanban" && (
+				<AssignmentBoard
+					assignments={assignments}
+					byStatus={byStatus}
+					courseNameById={courseNameById}
+					courseCodeById={courseCodeById}
+					onStatusChange={handleStatusChange}
+				>
+					{ASSIGNMENT_STATUSES.map((status) => (
+						<AssignmentBoard.Column
+							key={status}
+							status={status}
+							items={byStatus[status]}
+							count={byStatus[status].length}
+						>
+							{byStatus[status].length === 0 ? (
+								<AssignmentBoard.Empty status={status} />
+							) : (
+								byStatus[status].map((assignment) => {
+									const course = courseById[assignment.courseId];
+									return (
+										<AssignmentCard
+											key={assignment.id}
+											assignment={assignment}
+											courseName={course?.name ?? assignment.courseId}
+											courseCode={course?.code}
+											isPinned={pinnedSet.has(assignment.id)}
+											onPin={handlePin}
+											onEdit={() => handleEdit(assignment)}
+											onToggle={handleToggle}
+											onDelete={handleDelete}
+										/>
+									);
+								})
+							)}
+						</AssignmentBoard.Column>
+					))}
+				</AssignmentBoard>
+			)}
+
+			{activeTab === "virtualized" && (
+				<VirtualizedAssignmentList
+					items={filteredAssignments}
+					courseNameById={courseNameById}
+					courseCodeById={courseCodeById}
+					pinnedSet={pinnedSet}
+					onPin={handlePin}
+					onEdit={handleEdit}
+					onToggle={handleToggle}
+					onDelete={handleDelete}
+				/>
+			)}
+
+			{activeTab === "stats" && (
+				<Suspense
+					fallback={
+						<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+							<Skeleton className="h-32" />
+							<Skeleton className="h-32" />
+							<Skeleton className="h-32" />
+							<Skeleton className="h-32" />
+						</div>
+					}
+				>
+					<LazyAssignmentStatsView
+						assignments={assignments}
+						courses={courses}
+					/>
+				</Suspense>
+			)}
 
 			{dialog !== null && (
 				<AssignmentFormDialog

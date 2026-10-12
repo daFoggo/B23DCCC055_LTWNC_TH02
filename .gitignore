@@ -16,3 +16,7 @@ todos.json
 
 # ad-hoc scripts
 scripts/local/
+
+# test coverage
+coverage
+

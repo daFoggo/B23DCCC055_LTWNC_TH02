@@ -4,6 +4,7 @@ import {
 	createContext,
 	use,
 	useEffect,
+	useMemo,
 	useRef,
 	useState,
 	useTransition,
@@ -105,11 +106,12 @@ export const ThemeProvider = ({
 		});
 	};
 
-	return (
-		<ThemeContext value={{ theme, resolvedTheme, setTheme, isPending }}>
-			{children}
-		</ThemeContext>
+	const contextValue = useMemo(
+		() => ({ theme, resolvedTheme, setTheme, isPending }),
+		[theme, resolvedTheme, isPending],
 	);
+
+	return <ThemeContext value={contextValue}>{children}</ThemeContext>;
 };
 
 export const useTheme = () => use(ThemeContext);

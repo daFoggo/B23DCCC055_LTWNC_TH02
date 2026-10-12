@@ -31,6 +31,69 @@ export const getDaysUntilDeadline = (
 	now: Date = new Date(),
 ): number => Math.ceil((Date.parse(deadline) - now.getTime()) / DAY_MS);
 
+export const calcDaysLeft = (
+	deadline: string,
+	now: Date = new Date(),
+): number => {
+	const diff = Date.parse(deadline) - now.getTime();
+	return Math.ceil(diff / DAY_MS);
+};
+
+export const isOverdue = (
+	assignment: Pick<Assignment, "completed" | "deadline">,
+	now: Date = new Date(),
+): boolean => {
+	if (assignment.completed) return false;
+	return Date.parse(assignment.deadline) < now.getTime();
+};
+
+export interface AssignmentStats {
+	total: number;
+	completed: number;
+	inProgress: number;
+	overdue: number;
+	byCourse: Record<
+		string,
+		{ total: number; completed: number; overdue: number } | undefined
+	>;
+}
+
+export const calcStats = (
+	assignments: Assignment[],
+	now: Date = new Date(),
+): AssignmentStats => {
+	const stats: AssignmentStats = {
+		total: assignments.length,
+		completed: 0,
+		inProgress: 0,
+		overdue: 0,
+		byCourse: {},
+	};
+
+	for (const a of assignments) {
+		const status = getAssignmentStatus(a, now);
+		if (status === "completed") {
+			stats.completed += 1;
+		} else if (status === "overdue") {
+			stats.overdue += 1;
+		} else {
+			stats.inProgress += 1;
+		}
+
+		if (!stats.byCourse[a.courseId]) {
+			stats.byCourse[a.courseId] = { total: 0, completed: 0, overdue: 0 };
+		}
+		stats.byCourse[a.courseId].total += 1;
+		if (status === "completed") {
+			stats.byCourse[a.courseId].completed += 1;
+		} else if (status === "overdue") {
+			stats.byCourse[a.courseId].overdue += 1;
+		}
+	}
+
+	return stats;
+};
+
 export const getAssignmentStatus = (
 	assignment: Pick<Assignment, "completed" | "deadline">,
 	now: Date = new Date(),
@@ -153,6 +216,7 @@ export interface AssignmentFilterCriteria {
 	priorityFilter?: Priority | "all";
 	courseFilter?: string | "all";
 	sortBy?: KanbanSortOption;
+	pinnedIds?: string[];
 }
 
 export const filterAndSortAssignments = (
@@ -164,6 +228,8 @@ export const filterAndSortAssignments = (
 	const priority = criteria.priorityFilter ?? "all";
 	const courseId = criteria.courseFilter ?? "all";
 	const sortBy = criteria.sortBy ?? "deadline-asc";
+	const pinnedIds = criteria.pinnedIds ?? [];
+	const pinnedSet = new Set(pinnedIds);
 
 	const filtered = assignments.filter((assignment) => {
 		if (priority !== "all" && assignment.priority !== priority) {
@@ -185,6 +251,12 @@ export const filterAndSortAssignments = (
 	});
 
 	return [...filtered].sort((a, b) => {
+		// Bài tập đã ghim luôn hiện lên đầu danh sách
+		const aPinned = pinnedSet.has(a.id);
+		const bPinned = pinnedSet.has(b.id);
+		if (aPinned && !bPinned) return -1;
+		if (!aPinned && bPinned) return 1;
+
 		switch (sortBy) {
 			case "deadline-asc":
 				return Date.parse(a.deadline) - Date.parse(b.deadline);

@@ -24,10 +24,12 @@ import {
 	IconClipboardList,
 	IconGripVertical,
 	IconPencil,
+	IconPin,
+	IconPinFilled,
 	IconTrash,
 } from "@tabler/icons-react";
 import type { ComponentProps, ReactNode } from "react";
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -105,21 +107,25 @@ interface AssignmentCardProps {
 	assignment: Assignment;
 	courseName: string;
 	courseCode?: string;
+	isPinned?: boolean;
+	onPin?: (id: AssignmentId) => void;
 	onEdit?: (id: AssignmentId) => void;
 	onToggle?: (id: AssignmentId, completed: boolean) => void;
 	onDelete?: (id: AssignmentId) => void;
 	isOverlay?: boolean;
 }
 
-const AssignmentCard = ({
+export const AssignmentCard = memo(function AssignmentCardComponent({
 	assignment,
 	courseName,
 	courseCode,
+	isPinned = false,
+	onPin,
 	onEdit,
 	onToggle,
 	onDelete,
 	isOverlay = false,
-}: AssignmentCardProps) => {
+}: AssignmentCardProps) {
 	const { id, name, deadline, priority, completed } = assignment;
 	const label = getDeadlineLabel(deadline);
 	const isOverdue = label.kind === "overdue";
@@ -149,6 +155,7 @@ const AssignmentCard = ({
 			size="sm"
 			className={cn(
 				"transition-shadow",
+				isPinned && "border-primary/50 shadow-sm",
 				isDragging && "border-dashed opacity-25 ring-2 ring-primary/40",
 				isOverlay && "cursor-grabbing shadow-xl ring-1 ring-primary/40",
 			)}
@@ -170,6 +177,19 @@ const AssignmentCard = ({
 				</div>
 				<CardAction>
 					<div className="flex items-center gap-1">
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							aria-label={isPinned ? `Bỏ ghim "${name}"` : `Ghim "${name}"`}
+							onClick={() => onPin?.(id)}
+							className={isPinned ? "text-primary" : "text-muted-foreground"}
+						>
+							{isPinned ? (
+								<IconPinFilled className="size-4" />
+							) : (
+								<IconPin className="size-4" />
+							)}
+						</Button>
 						<Button
 							variant="ghost"
 							size="icon-sm"
@@ -198,6 +218,11 @@ const AssignmentCard = ({
 						<span>{courseName}</span>
 					</Badge>
 					<Badge variant="secondary">{PRIORITY_META[priority].label}</Badge>
+					{isPinned && (
+						<Badge variant="default" className="text-[10px]">
+							Đã ghim
+						</Badge>
+					)}
 				</div>
 				<div
 					className={cn(
@@ -222,7 +247,7 @@ const AssignmentCard = ({
 			</CardFooter>
 		</Card>
 	);
-};
+});
 
 const COLUMN_EMPTY_TITLES: Record<AssignmentStatus, string> = {
 	"in-progress": "Chưa có bài tập đang triển khai",

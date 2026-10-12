@@ -4,11 +4,7 @@ import { persist } from "zustand/middleware";
 import type { AssignmentStatus, Priority } from "./schemas";
 
 export type KanbanSortOption =
-	| "manual"
-	| "deadline-asc"
-	| "deadline-desc"
-	| "priority-desc"
-	| "name-asc";
+	"manual" | "deadline-asc" | "deadline-desc" | "priority-desc" | "name-asc";
 
 export type ColumnOrderMap = Record<AssignmentStatus, string[]>;
 
@@ -169,6 +165,33 @@ export const useKanbanStore = create<KanbanLayoutState & KanbanLayoutActions>()(
 				courseFilter: state.courseFilter,
 				columnOrder: state.columnOrder,
 			}),
+		},
+	),
+);
+
+export interface PinState {
+	pinnedIds: string[];
+	togglePin: (id: string) => void;
+	isPinned: (id: string) => boolean;
+}
+
+export const usePinStore = create<PinState>()(
+	persist(
+		(set, get) => ({
+			pinnedIds: [],
+			togglePin: (id: string) => {
+				const current = get().pinnedIds;
+				const exists = current.includes(id);
+				set({
+					pinnedIds: exists
+						? current.filter((item) => item !== id)
+						: [id, ...current],
+				});
+			},
+			isPinned: (id: string) => get().pinnedIds.includes(id),
+		}),
+		{
+			name: "assignment-pinned-ids",
 		},
 	),
 );
