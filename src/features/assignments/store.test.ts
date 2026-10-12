@@ -1,7 +1,9 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { useAssignmentsByStatus } from "./hooks";
+import type { Assignment } from "./schemas";
 import { useKanbanStore, usePinStore } from "./store";
+
 
 describe("assignments store unit tests", () => {
 	beforeEach(() => {
@@ -112,7 +114,7 @@ describe("useKanbanStore unit tests", () => {
 
 describe("useAssignmentsByStatus hook", () => {
 	it("groups assignments correctly", () => {
-		const sampleList = [
+		const sampleList: Assignment[] = [
 			{
 				id: "1",
 				courseId: "course-web",
@@ -132,6 +134,7 @@ describe("useAssignmentsByStatus hook", () => {
 				createdAt: "2026-10-01T00:00:00.000Z",
 			},
 		];
+
 
 		const { result } = renderHook(() => useAssignmentsByStatus(sampleList));
 		expect(result.current["completed"].length).toBe(1);

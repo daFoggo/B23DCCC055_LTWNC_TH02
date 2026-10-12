@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, renderHook, screen, waitFor } from "@testing-library/react";
+import { render, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { CourseIcon } from "./components/course-icon";
 import * as functions from "./functions";
 import { courseKeys, coursesQueryOptions, useCoursesQuery } from "./queries";
 import { isCourse, isCourseList } from "./schemas";
+
 
 vi.mock("./functions", () => ({
 	listCoursesFn: vi.fn(),
@@ -60,4 +61,14 @@ describe("course feature", () => {
 
 		expect(result.current.data).toEqual(sampleCourses);
 	});
+
+	it("defines correct query key factory and query options", () => {
+		expect(courseKeys.all).toEqual(["courses"]);
+		expect(courseKeys.list()).toEqual(["courses", "list"]);
+
+		const options = coursesQueryOptions();
+		expect(options.queryKey).toEqual(courseKeys.list());
+		expect(typeof options.queryFn).toBe("function");
+	});
 });
+

@@ -80,16 +80,20 @@ export const calcStats = (
 			stats.inProgress += 1;
 		}
 
-		if (!stats.byCourse[a.courseId]) {
-			stats.byCourse[a.courseId] = { total: 0, completed: 0, overdue: 0 };
-		}
-		stats.byCourse[a.courseId].total += 1;
+		const currentCourseStat = stats.byCourse[a.courseId] ?? {
+			total: 0,
+			completed: 0,
+			overdue: 0,
+		};
+		currentCourseStat.total += 1;
 		if (status === "completed") {
-			stats.byCourse[a.courseId].completed += 1;
+			currentCourseStat.completed += 1;
 		} else if (status === "overdue") {
-			stats.byCourse[a.courseId].overdue += 1;
+			currentCourseStat.overdue += 1;
 		}
+		stats.byCourse[a.courseId] = currentCourseStat;
 	}
+
 
 	return stats;
 };
